@@ -2,6 +2,7 @@ const vertexShader = `
 attribute vec4 tangent;
 
 varying float vPattern;
+varying vec2 vUv;
 
 uniform float uTime;
 uniform float uSpeed;
@@ -100,6 +101,9 @@ float getDisplacement(vec3 position) {
 }
 
 void main() {
+    // Pass UV coordinates to fragment shader
+    vUv = uv;
+    
     vec3 biTangent = cross(csm_Normal, tangent.xyz);
     float shift = 0.01;
     vec3 posA = csm_Position + tangent.xyz * shift;

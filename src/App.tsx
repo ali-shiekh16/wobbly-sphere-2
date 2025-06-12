@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { OrbitControls } from '@react-three/drei';
+import { Environment, OrbitControls } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -7,6 +7,7 @@ import { useMediaQuery } from 'usehooks-ts';
 import Experiment from './Experiment';
 import LevaWrapper from './LevaWrapper';
 import './App.css';
+import Sphere from './Sphere';
 
 const App = () => {
   const isTablet = useMediaQuery('(max-width: 1199px)');
@@ -42,10 +43,12 @@ const App = () => {
             onLoaded={handleLoad}
           />
         </Suspense>
+        {/* <Sphere /> */}
+        {/* <Environment preset='city' /> */}
         <OrbitControls />
-        <EffectComposer>
+        {/* <EffectComposer>
           <Bloom luminanceThreshold={0} luminanceSmoothing={0.9} height={300} />
-        </EffectComposer>
+        </EffectComposer> */}
       </Canvas>
     </div>
   );

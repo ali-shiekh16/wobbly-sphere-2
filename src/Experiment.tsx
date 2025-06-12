@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls } from 'leva';
+import { useTexture } from '@react-three/drei';
 import {
   Color,
   IcosahedronGeometry,
@@ -8,6 +9,7 @@ import {
   MeshPhysicalMaterial,
   RGBADepthPacking,
   Mesh,
+  RepeatWrapping,
 } from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -28,6 +30,16 @@ const Experiment = ({
   const materialRef = useRef<any>(null);
   const depthMaterialRef = useRef<any>(null);
   const meshRef = useRef<Mesh>(null);
+  // Load base texture
+  const baseTexture = useTexture('/texture/base.png');
+
+  // Configure texture
+  useEffect(() => {
+    baseTexture.wrapS = RepeatWrapping;
+    baseTexture.wrapT = RepeatWrapping;
+    baseTexture.repeat.set(2, 2);
+    baseTexture.flipY = false;
+  }, [baseTexture]);
 
   const {
     gradientStrength,
@@ -159,7 +171,8 @@ const Experiment = ({
 
   const geometry = useMemo(() => {
     const geometry = mergeVertices(
-      new IcosahedronGeometry(1.3, shouldReduceQuality ? 128 : 200)
+      // new IcosahedronGeometry(1.3, shouldReduceQuality ? 128 : 200)
+      new IcosahedronGeometry(1.3, 32)
     );
     geometry.computeTangents();
     return geometry;
@@ -173,6 +186,7 @@ const Experiment = ({
     uNoiseStrength: { value: noiseStrength },
     uDisplacementStrength: { value: displacementStrength },
     uFractAmount: { value: fractAmount },
+    uBaseTexture: { value: baseTexture },
   };
 
   useEffect(() => {

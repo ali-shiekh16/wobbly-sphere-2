@@ -1,12 +1,14 @@
 const fragment = `
 varying float vPattern;
+varying vec2 vUv;
 uniform vec3 uColor;
 uniform float uGradientStrength;
+uniform sampler2D uBaseTexture;
 
 void main() {
-    vec3 color = vPattern * uColor * uGradientStrength;
+    vec4 textureColor = texture2D(uBaseTexture, vUv);
     
-    csm_DiffuseColor = vec4(color, 1.0);
+    csm_DiffuseColor = textureColor;
 }
 `;
 

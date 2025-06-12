@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Environment, OrbitControls } from '@react-three/drei';
-import { Bloom, EffectComposer } from '@react-three/postprocessing';
+import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { useMediaQuery } from 'usehooks-ts';
 import Experiment from './Experiment';
 import LevaWrapper from './LevaWrapper';
 import './App.css';
-import Sphere from './Sphere';
 
 const App = () => {
   const isTablet = useMediaQuery('(max-width: 1199px)');

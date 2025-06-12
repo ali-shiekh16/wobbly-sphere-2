@@ -29,17 +29,8 @@ const Experiment = ({
 }: ExperimentProps) => {
   const materialRef = useRef<any>(null);
   const depthMaterialRef = useRef<any>(null);
-  const meshRef = useRef<Mesh>(null);
-  // Load base texture
+  const meshRef = useRef<Mesh>(null); // Load base texture
   const baseTexture = useTexture('/texture/base.png');
-
-  // Configure texture
-  useEffect(() => {
-    baseTexture.wrapS = RepeatWrapping;
-    baseTexture.wrapT = RepeatWrapping;
-    baseTexture.repeat.set(2, 2);
-    baseTexture.flipY = false;
-  }, [baseTexture]);
 
   const {
     gradientStrength,
@@ -96,7 +87,7 @@ const Experiment = ({
       min: 0,
       max: 1,
       step: 0.001,
-      value: 1,
+      value: 0.6,
     },
     clearcoat: {
       min: 0,
@@ -122,6 +113,50 @@ const Experiment = ({
       step: 0.001,
       value: 0.96,
     },
+  });
+
+  // Texture Controls
+  const {
+    textureRepeatX,
+    textureRepeatY,
+    textureRotation,
+    textureOffsetX,
+    textureOffsetY,
+    flipX,
+    flipY,
+  } = useControls('Texture Settings', {
+    textureRepeatX: {
+      value: 3,
+      min: 0.1,
+      max: 10,
+      step: 0.1,
+    },
+    textureRepeatY: {
+      value: 3,
+      min: 0.1,
+      max: 10,
+      step: 0.1,
+    },
+    textureRotation: {
+      value: 0,
+      min: 0,
+      max: Math.PI * 2,
+      step: 0.01,
+    },
+    textureOffsetX: {
+      value: 0,
+      min: -1,
+      max: 1,
+      step: 0.01,
+    },
+    textureOffsetY: {
+      value: 0,
+      min: -1,
+      max: 1,
+      step: 0.01,
+    },
+    flipX: false,
+    flipY: false,
   });
 
   const { intensity: ambientLightIntensity, color: ambientLightColor } =
@@ -168,6 +203,12 @@ const Experiment = ({
       step: 0.001,
     },
   });
+  // Configure texture wrapping
+  useEffect(() => {
+    baseTexture.wrapS = RepeatWrapping;
+    baseTexture.wrapT = RepeatWrapping;
+    baseTexture.needsUpdate = true;
+  }, [baseTexture]);
 
   const geometry = useMemo(() => {
     const geometry = mergeVertices(
@@ -177,7 +218,6 @@ const Experiment = ({
     geometry.computeTangents();
     return geometry;
   }, [shouldReduceQuality]);
-
   const uniforms = {
     uTime: { value: 0 },
     uColor: { value: new Color(color) },
@@ -187,6 +227,14 @@ const Experiment = ({
     uDisplacementStrength: { value: displacementStrength },
     uFractAmount: { value: fractAmount },
     uBaseTexture: { value: baseTexture },
+    // Texture transformation uniforms
+    uTextureRepeatX: { value: textureRepeatX },
+    uTextureRepeatY: { value: textureRepeatY },
+    uTextureRotation: { value: textureRotation },
+    uTextureOffsetX: { value: textureOffsetX },
+    uTextureOffsetY: { value: textureOffsetY },
+    uFlipX: { value: flipX },
+    uFlipY: { value: flipY },
   };
 
   useEffect(() => {
@@ -195,7 +243,6 @@ const Experiment = ({
 
   useFrame(({ clock }) => {
     const elapsedTime = clock.getElapsedTime();
-
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = elapsedTime;
       materialRef.current.uniforms.uColor.value = new Color(color);
@@ -205,6 +252,15 @@ const Experiment = ({
       materialRef.current.uniforms.uDisplacementStrength.value =
         displacementStrength;
       materialRef.current.uniforms.uFractAmount.value = fractAmount;
+
+      // Update texture transformation uniforms
+      materialRef.current.uniforms.uTextureRepeatX.value = textureRepeatX;
+      materialRef.current.uniforms.uTextureRepeatY.value = textureRepeatY;
+      materialRef.current.uniforms.uTextureRotation.value = textureRotation;
+      materialRef.current.uniforms.uTextureOffsetX.value = textureOffsetX;
+      materialRef.current.uniforms.uTextureOffsetY.value = textureOffsetY;
+      materialRef.current.uniforms.uFlipX.value = flipX;
+      materialRef.current.uniforms.uFlipY.value = flipY;
     }
 
     if (depthMaterialRef.current) {

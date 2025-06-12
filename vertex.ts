@@ -1,6 +1,6 @@
 const vertexShader = `
 
-attribute vec4 tangent;
+// attribute vec4 tangent;
 
 varying float vPattern;
 varying vec2 vUv;
@@ -11,16 +11,7 @@ uniform float uNoiseStrength;
 uniform float uDisplacementStrength;
 uniform float uFractAmount;
 
-// Texture transformation uniforms
-uniform float uTextureRepeatX;
-uniform float uTextureRepeatY;
-uniform float uTextureRotation;
-uniform float uTextureOffsetX;
-uniform float uTextureOffsetY;
-uniform bool uFlipX;
-uniform bool uFlipY;
-
-//	Classic Perlin 3D Noise 
+//	Classic Perlin 3D Noise
 //	by Stefan Gustavson (https://github.com/stegu/webgl-noise)
 //
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
@@ -111,29 +102,8 @@ float getDisplacement(vec3 position) {
 }
 
 void main() {
-    // Apply texture transformations to UV coordinates
-    vec2 transformedUV = uv;
-    
-    // Apply repeat
-    transformedUV *= vec2(uTextureRepeatX, uTextureRepeatY);
-    
-    // Apply flipping
-    if (uFlipX) transformedUV.x = -transformedUV.x;
-    if (uFlipY) transformedUV.y = -transformedUV.y;
-    
-    // Apply offset
-    transformedUV += vec2(uTextureOffsetX, uTextureOffsetY);
-    
-    // Apply rotation
-    if (uTextureRotation != 0.0) {
-        float cosR = cos(uTextureRotation);
-        float sinR = sin(uTextureRotation);
-        mat2 rotationMatrix = mat2(cosR, -sinR, sinR, cosR);
-        transformedUV = rotationMatrix * (transformedUV - 0.5) + 0.5;
-    }
-    
-    // Pass transformed UV coordinates to fragment shader
-    vUv = transformedUV;
+    // Pass UV coordinates to fragment shader
+    vUv = uv;
     
     vec3 biTangent = cross(csm_Normal, tangent.xyz);
     float shift = 0.01;

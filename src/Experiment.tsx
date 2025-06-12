@@ -14,7 +14,6 @@ import {
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import vertexShader from '../vertex';
-import fragmentShader from './fragment';
 
 interface ExperimentProps {
   shouldReduceQuality: boolean;
@@ -126,13 +125,13 @@ const Experiment = ({
     flipY,
   } = useControls('Texture Settings', {
     textureRepeatX: {
-      value: 3,
+      value: 1,
       min: 0.1,
       max: 10,
       step: 0.1,
     },
     textureRepeatY: {
-      value: 3,
+      value: 1,
       min: 0.1,
       max: 10,
       step: 0.1,
@@ -203,17 +202,31 @@ const Experiment = ({
       step: 0.001,
     },
   });
-  // Configure texture wrapping
+
+  // Configure texture wrapping and transformations
   useEffect(() => {
     baseTexture.wrapS = RepeatWrapping;
     baseTexture.wrapT = RepeatWrapping;
+    baseTexture.repeat.set(textureRepeatX, textureRepeatY);
+    baseTexture.offset.set(textureOffsetX, textureOffsetY);
+    baseTexture.rotation = textureRotation;
+    baseTexture.flipY = flipY;
     baseTexture.needsUpdate = true;
-  }, [baseTexture]);
+  }, [
+    baseTexture,
+    textureRepeatX,
+    textureRepeatY,
+    textureRotation,
+    textureOffsetX,
+    textureOffsetY,
+    flipX,
+    flipY,
+  ]);
 
   const geometry = useMemo(() => {
     const geometry = mergeVertices(
       // new IcosahedronGeometry(1.3, shouldReduceQuality ? 128 : 200)
-      new IcosahedronGeometry(1.3, 32)
+      new IcosahedronGeometry(1.3, 64)
     );
     geometry.computeTangents();
     return geometry;
@@ -227,14 +240,6 @@ const Experiment = ({
     uDisplacementStrength: { value: displacementStrength },
     uFractAmount: { value: fractAmount },
     uBaseTexture: { value: baseTexture },
-    // Texture transformation uniforms
-    uTextureRepeatX: { value: textureRepeatX },
-    uTextureRepeatY: { value: textureRepeatY },
-    uTextureRotation: { value: textureRotation },
-    uTextureOffsetX: { value: textureOffsetX },
-    uTextureOffsetY: { value: textureOffsetY },
-    uFlipX: { value: flipX },
-    uFlipY: { value: flipY },
   };
 
   useEffect(() => {
@@ -252,15 +257,6 @@ const Experiment = ({
       materialRef.current.uniforms.uDisplacementStrength.value =
         displacementStrength;
       materialRef.current.uniforms.uFractAmount.value = fractAmount;
-
-      // Update texture transformation uniforms
-      materialRef.current.uniforms.uTextureRepeatX.value = textureRepeatX;
-      materialRef.current.uniforms.uTextureRepeatY.value = textureRepeatY;
-      materialRef.current.uniforms.uTextureRotation.value = textureRotation;
-      materialRef.current.uniforms.uTextureOffsetX.value = textureOffsetX;
-      materialRef.current.uniforms.uTextureOffsetY.value = textureOffsetY;
-      materialRef.current.uniforms.uFlipX.value = flipX;
-      materialRef.current.uniforms.uFlipY.value = flipY;
     }
 
     if (depthMaterialRef.current) {
@@ -286,17 +282,25 @@ const Experiment = ({
         frustumCulled={false}
         position={[0, isMobile ? -1.3 * 0 : 0, 0]}
       >
+        {' '}
         <CustomShaderMaterial
           ref={materialRef}
-          baseMaterial={MeshPhysicalMaterial}
+          baseMaterial={
+            new MeshPhysicalMaterial({
+              map: baseTexture,
+              normalMap: useTexture('/texture/normal.png'),
+              roughnessMap: useTexture('/texture/roughness.png'),
+              metalnessMap: useTexture('/texture/metallic.png'),
+              roughness,
+              metalness,
+              clearcoat,
+              reflectivity,
+              ior,
+              iridescence,
+            })
+          }
           vertexShader={vertexShader}
-          fragmentShader={fragmentShader}
-          roughness={roughness}
-          metalness={metalness}
-          reflectivity={reflectivity}
-          clearcoat={clearcoat}
-          ior={ior}
-          iridescence={iridescence}
+          // fragmentShader={fragmentShader}
           uniforms={uniforms}
         />
         <CustomShaderMaterial

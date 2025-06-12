@@ -4,12 +4,12 @@ import { useControls } from 'leva';
 import { useTexture } from '@react-three/drei';
 import {
   Color,
-  IcosahedronGeometry,
   MeshDepthMaterial,
   MeshPhysicalMaterial,
   RGBADepthPacking,
   Mesh,
   RepeatWrapping,
+  SphereGeometry,
 } from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -226,7 +226,8 @@ const Experiment = ({
   const geometry = useMemo(() => {
     const geometry = mergeVertices(
       // new IcosahedronGeometry(1.3, shouldReduceQuality ? 128 : 200)
-      new IcosahedronGeometry(1.3, 64)
+      // new IcosahedronGeometry(1.3, 64)
+      new SphereGeometry(1.3, 64, 64)
     );
     geometry.computeTangents();
     return geometry;

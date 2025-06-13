@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls } from 'leva';
-import { useTexture } from '@react-three/drei';
+import { useGLTF, useTexture } from '@react-three/drei';
 import {
   Color,
   MeshDepthMaterial,
-  MeshPhysicalMaterial,
   RGBADepthPacking,
   Mesh,
   RepeatWrapping,
-  SphereGeometry,
 } from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -29,6 +27,8 @@ const Experiment = ({
   const materialRef = useRef<any>(null);
   const depthMaterialRef = useRef<any>(null);
   const meshRef = useRef<Mesh>(null); // Load base texture
+  const { nodes, materials } = useGLTF('/sphere.glb');
+
   const baseTexture = useTexture('/texture/base.png');
 
   const {
@@ -38,12 +38,6 @@ const Experiment = ({
     noiseStrength,
     displacementStrength,
     fractAmount,
-    roughness,
-    metalness,
-    clearcoat,
-    reflectivity,
-    ior,
-    iridescence,
   } = useControls({
     gradientStrength: {
       value: 1,
@@ -75,42 +69,6 @@ const Experiment = ({
       min: 0,
       max: 10,
       step: 1,
-    },
-    roughness: {
-      min: 0,
-      max: 1,
-      step: 0.001,
-      value: 0.56,
-    },
-    metalness: {
-      min: 0,
-      max: 1,
-      step: 0.001,
-      value: 0.6,
-    },
-    clearcoat: {
-      min: 0,
-      max: 1,
-      step: 0.001,
-      value: 0,
-    },
-    reflectivity: {
-      min: 0,
-      max: 1,
-      step: 0.001,
-      value: 0.46,
-    },
-    ior: {
-      min: 0.001,
-      max: 5,
-      step: 0.001,
-      value: 2.81,
-    },
-    iridescence: {
-      min: 0,
-      max: 1,
-      step: 0.001,
-      value: 0.96,
     },
   });
 
@@ -224,14 +182,18 @@ const Experiment = ({
   ]);
 
   const geometry = useMemo(() => {
+    // geometry={nodes.Sphere.geometry}
     const geometry = mergeVertices(
       // new IcosahedronGeometry(1.3, shouldReduceQuality ? 128 : 200)
       // new IcosahedronGeometry(1.3, 64)
-      new SphereGeometry(1.3, 64, 64)
+      // new SphereGeometry(1.3, 64, 64)
+      // @ts-ignore
+      nodes.Sphere.geometry
     );
     geometry.computeTangents();
     return geometry;
   }, [shouldReduceQuality]);
+
   const uniforms = {
     uTime: { value: 0 },
     uColor: { value: new Color(color) },
@@ -280,26 +242,28 @@ const Experiment = ({
       <mesh
         ref={meshRef}
         geometry={geometry}
+        // @ts-ignore
         frustumCulled={false}
         position={[0, isMobile ? -1.3 * 0 : 0, 0]}
       >
         {' '}
         <CustomShaderMaterial
           ref={materialRef}
-          baseMaterial={
-            new MeshPhysicalMaterial({
-              map: baseTexture,
-              normalMap: useTexture('/texture/normal.png'),
-              roughnessMap: useTexture('/texture/roughness.png'),
-              metalnessMap: useTexture('/texture/metallic.png'),
-              roughness,
-              metalness,
-              clearcoat,
-              reflectivity,
-              ior,
-              iridescence,
-            })
-          }
+          // baseMaterial={
+          //   new MeshPhysicalMaterial({
+          //     map: baseTexture,
+          //     normalMap: useTexture('/texture/normal.png'),
+          //     roughnessMap: useTexture('/texture/roughness.png'),
+          //     metalnessMap: useTexture('/texture/metallic.png'),
+          //     roughness,
+          //     metalness,
+          //     clearcoat,
+          //     reflectivity,
+          //     ior,
+          //     iridescence,
+          //   })
+          // }
+          baseMaterial={materials['Carbon Fiber Electric Blue.002']}
           vertexShader={vertexShader}
           // fragmentShader={fragmentShader}
           uniforms={uniforms}

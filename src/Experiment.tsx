@@ -2,13 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls } from 'leva';
 import { useGLTF, useTexture } from '@react-three/drei';
-import {
-  Color,
-  MeshDepthMaterial,
-  RGBADepthPacking,
-  Mesh,
-  RepeatWrapping,
-} from 'three';
+import { MeshDepthMaterial, RGBADepthPacking, Mesh } from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import vertexShader from '../vertex';
@@ -31,90 +25,33 @@ const Experiment = ({
 
   const baseTexture = useTexture('/texture/base.png');
 
-  const {
-    gradientStrength,
-    color,
-    speed,
-    noiseStrength,
-    displacementStrength,
-    fractAmount,
-  } = useControls({
-    gradientStrength: {
-      value: 1,
-      min: 1,
-      max: 3,
-      step: 0.001,
-    },
-    color: '#af00ff',
-    speed: {
-      value: 18.5,
-      min: 0,
-      max: 20,
-      step: 0.001,
-    },
-    noiseStrength: {
-      value: 0.24,
-      min: 0,
-      max: 15,
-      step: 0.001,
-    },
-    displacementStrength: {
-      value: 0.61,
-      min: 0,
-      max: 1,
-      step: 0.001,
-    },
-    fractAmount: {
-      value: 2,
-      min: 0,
-      max: 10,
-      step: 1,
-    },
-  });
-
-  // Texture Controls
-  const {
-    textureRepeatX,
-    textureRepeatY,
-    textureRotation,
-    textureOffsetX,
-    textureOffsetY,
-    flipX,
-    flipY,
-  } = useControls('Texture Settings', {
-    textureRepeatX: {
-      value: 1,
-      min: 0.1,
-      max: 10,
-      step: 0.1,
-    },
-    textureRepeatY: {
-      value: 1,
-      min: 0.1,
-      max: 10,
-      step: 0.1,
-    },
-    textureRotation: {
-      value: 0,
-      min: 0,
-      max: Math.PI * 2,
-      step: 0.01,
-    },
-    textureOffsetX: {
-      value: 0,
-      min: -1,
-      max: 1,
-      step: 0.01,
-    },
-    textureOffsetY: {
-      value: 0,
-      min: -1,
-      max: 1,
-      step: 0.01,
-    },
-    flipX: false,
-    flipY: false,
-  });
+  const { speed, noiseStrength, displacementStrength, fractAmount } =
+    useControls({
+      speed: {
+        value: 9,
+        min: 0,
+        max: 20,
+        step: 0.001,
+      },
+      noiseStrength: {
+        value: 0.5,
+        min: 0,
+        max: 15,
+        step: 0.001,
+      },
+      displacementStrength: {
+        value: 0.61,
+        min: 0,
+        max: 1,
+        step: 0.001,
+      },
+      fractAmount: {
+        value: 2,
+        min: 0,
+        max: 10,
+        step: 1,
+      },
+    });
 
   const { intensity: ambientLightIntensity, color: ambientLightColor } =
     useControls('Ambient light', {
@@ -161,32 +98,8 @@ const Experiment = ({
     },
   });
 
-  // Configure texture wrapping and transformations
-  useEffect(() => {
-    baseTexture.wrapS = RepeatWrapping;
-    baseTexture.wrapT = RepeatWrapping;
-    baseTexture.repeat.set(textureRepeatX, textureRepeatY);
-    baseTexture.offset.set(textureOffsetX, textureOffsetY);
-    baseTexture.rotation = textureRotation;
-    baseTexture.flipY = flipY;
-    baseTexture.needsUpdate = true;
-  }, [
-    baseTexture,
-    textureRepeatX,
-    textureRepeatY,
-    textureRotation,
-    textureOffsetX,
-    textureOffsetY,
-    flipX,
-    flipY,
-  ]);
-
   const geometry = useMemo(() => {
-    // geometry={nodes.Sphere.geometry}
     const geometry = mergeVertices(
-      // new IcosahedronGeometry(1.3, shouldReduceQuality ? 128 : 200)
-      // new IcosahedronGeometry(1.3, 64)
-      // new SphereGeometry(1.3, 64, 64)
       // @ts-ignore
       nodes.Sphere.geometry
     );
@@ -196,8 +109,7 @@ const Experiment = ({
 
   const uniforms = {
     uTime: { value: 0 },
-    uColor: { value: new Color(color) },
-    uGradientStrength: { value: gradientStrength },
+
     uSpeed: { value: speed },
     uNoiseStrength: { value: noiseStrength },
     uDisplacementStrength: { value: displacementStrength },
@@ -213,8 +125,6 @@ const Experiment = ({
     const elapsedTime = clock.getElapsedTime();
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = elapsedTime;
-      materialRef.current.uniforms.uColor.value = new Color(color);
-      materialRef.current.uniforms.uGradientStrength.value = gradientStrength;
       materialRef.current.uniforms.uSpeed.value = speed;
       materialRef.current.uniforms.uNoiseStrength.value = noiseStrength;
       materialRef.current.uniforms.uDisplacementStrength.value =
@@ -246,26 +156,10 @@ const Experiment = ({
         frustumCulled={false}
         position={[0, isMobile ? -1.3 * 0 : 0, 0]}
       >
-        {' '}
         <CustomShaderMaterial
           ref={materialRef}
-          // baseMaterial={
-          //   new MeshPhysicalMaterial({
-          //     map: baseTexture,
-          //     normalMap: useTexture('/texture/normal.png'),
-          //     roughnessMap: useTexture('/texture/roughness.png'),
-          //     metalnessMap: useTexture('/texture/metallic.png'),
-          //     roughness,
-          //     metalness,
-          //     clearcoat,
-          //     reflectivity,
-          //     ior,
-          //     iridescence,
-          //   })
-          // }
           baseMaterial={materials['Carbon Fiber Electric Blue.002']}
           vertexShader={vertexShader}
-          // fragmentShader={fragmentShader}
           uniforms={uniforms}
         />
         <CustomShaderMaterial

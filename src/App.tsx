@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { useMediaQuery } from 'usehooks-ts';

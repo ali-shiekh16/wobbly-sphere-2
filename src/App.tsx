@@ -5,25 +5,35 @@ import { Suspense } from 'react';
 import { useMediaQuery } from 'usehooks-ts';
 import Experiment from './Experiment';
 import LevaWrapper from './LevaWrapper';
+import LoadingIndicator from './LoadingIndicator';
 import './App.css';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 
 const App = () => {
   const isTablet = useMediaQuery('(max-width: 1199px)');
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
       document.body.classList.remove('loading');
+      // Start fade out animation
+      setFadeOut(true);
+      // Hide loading indicator after fade animation completes
+      setTimeout(() => {
+        setShowLoading(false);
+      }, 500);
     }
   }, [isLoaded]);
 
   const handleLoad = () => {
     setIsLoaded(true);
   };
-
   return (
     <div className='container'>
+      {showLoading && <LoadingIndicator fadeOut={fadeOut} />}
       <LevaWrapper />
       <Canvas
         camera={{
@@ -41,12 +51,10 @@ const App = () => {
             onLoaded={handleLoad}
           />
         </Suspense>
-        {/* <Sphere /> */}
-        {/* <Environment preset='city' /> */}
-        <OrbitControls />
-        {/* <EffectComposer>
+        {/* <OrbitControls /> */}
+        <EffectComposer>
           <Bloom luminanceThreshold={0} luminanceSmoothing={0.9} height={300} />
-        </EffectComposer> */}
+        </EffectComposer>
       </Canvas>
     </div>
   );

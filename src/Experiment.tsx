@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useControls } from 'leva';
 import { useGLTF, useTexture } from '@react-three/drei';
-import { MeshDepthMaterial, RGBADepthPacking, Mesh } from 'three';
+import {
+  MeshDepthMaterial,
+  RGBADepthPacking,
+  Mesh,
+  IcosahedronGeometry,
+} from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import vertexShader from '../vertex';
@@ -21,7 +26,7 @@ const Experiment = ({
   const materialRef = useRef<any>(null);
   const depthMaterialRef = useRef<any>(null);
   const meshRef = useRef<Mesh>(null); // Load base texture
-  const { nodes, materials } = useGLTF('/sphere.glb');
+  const { materials } = useGLTF('/sphere.glb');
 
   const baseTexture = useTexture('/texture/base.png');
 
@@ -40,7 +45,7 @@ const Experiment = ({
         step: 0.001,
       },
       displacementStrength: {
-        value: 0.61,
+        value: 0.93,
         min: 0,
         max: 1,
         step: 0.001,
@@ -101,7 +106,8 @@ const Experiment = ({
   const geometry = useMemo(() => {
     const geometry = mergeVertices(
       // @ts-ignore
-      nodes.Sphere.geometry
+      // nodes.Sphere001.geometry
+      new IcosahedronGeometry(1, 80)
     );
     geometry.computeTangents();
     return geometry;
@@ -142,8 +148,8 @@ const Experiment = ({
     }
 
     if (meshRef.current) {
-      meshRef.current.rotation.y = elapsedTime * 0.2;
-      meshRef.current.rotation.x = elapsedTime * 0.2;
+      // meshRef.current.rotation.y = elapsedTime * 0.2;
+      // meshRef.current.rotation.x = elapsedTime * 0.2;
     }
   });
 
@@ -153,7 +159,7 @@ const Experiment = ({
         ref={meshRef}
         geometry={geometry}
         // @ts-ignore
-        frustumCulled={false}
+        // frustumCulled={false}
         position={[0, isMobile ? -1.3 * 0 : 0, 0]}
       >
         <CustomShaderMaterial

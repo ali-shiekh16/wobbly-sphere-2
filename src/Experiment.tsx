@@ -33,19 +33,19 @@ const Experiment = ({
   const { speed, noiseStrength, displacementStrength, fractAmount } =
     useControls({
       speed: {
-        value: 18.5,
+        value: 18,
         min: 0,
         max: 20,
         step: 0.001,
       },
       noiseStrength: {
-        value: 0.24,
+        value: 0.4,
         min: 0,
         max: 15,
         step: 0.001,
       },
       displacementStrength: {
-        value: 0.61,
+        value: 0.6,
         min: 0,
         max: 1,
         step: 0.001,
@@ -148,8 +148,8 @@ const Experiment = ({
     }
 
     if (meshRef.current) {
-      // meshRef.current.rotation.y = elapsedTime * 0.2;
-      // meshRef.current.rotation.x = elapsedTime * 0.2;
+      meshRef.current.rotation.y = elapsedTime * 0.3;
+      meshRef.current.rotation.x = elapsedTime * 0.3;
     }
   });
 

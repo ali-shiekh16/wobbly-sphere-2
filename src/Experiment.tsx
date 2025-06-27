@@ -26,26 +26,26 @@ const Experiment = ({
   const materialRef = useRef<any>(null);
   const depthMaterialRef = useRef<any>(null);
   const meshRef = useRef<Mesh>(null); // Load base texture
-  const { materials } = useGLTF('/sphere.glb');
+  const { materials } = useGLTF('/Sphere.glb');
 
   const baseTexture = useTexture('/texture/base.png');
 
   const { speed, noiseStrength, displacementStrength, fractAmount } =
     useControls({
       speed: {
-        value: 9,
+        value: 18.5,
         min: 0,
         max: 20,
         step: 0.001,
       },
       noiseStrength: {
-        value: 0.5,
+        value: 0.24,
         min: 0,
         max: 15,
         step: 0.001,
       },
       displacementStrength: {
-        value: 0.93,
+        value: 0.61,
         min: 0,
         max: 1,
         step: 0.001,
@@ -107,7 +107,7 @@ const Experiment = ({
     const geometry = mergeVertices(
       // @ts-ignore
       // nodes.Sphere001.geometry
-      new IcosahedronGeometry(1, 80)
+      new IcosahedronGeometry(1, 120)
     );
     geometry.computeTangents();
     return geometry;

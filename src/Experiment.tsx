@@ -178,33 +178,29 @@ const Experiment = ({
 
   // Optimized geometry based on device capabilities
   const geometry = useMemo(() => {
-    // Reduce geometry complexity on mobile and low-end devices
-    const subdivisions = shouldReduceQuality ? 
-      (isMobile ? 64 : 80) : // Lower subdivision for mobile
-      (isMobile ? 100 : 120); // High quality but still mobile-optimized
-    
-    const geometry = mergeVertices(
-      new IcosahedronGeometry(1, subdivisions)
-    );
+    const geometry = mergeVertices(new IcosahedronGeometry(1, 64));
     geometry.computeTangents();
     return geometry;
   }, [shouldReduceQuality, isMobile]);
 
   // Memoized uniforms object to prevent recreation on every render
-  const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uSpeed: { value: speed },
-    uNoiseStrength: { value: noiseStrength },
-    uDisplacementStrength: { value: displacementStrength },
-    uFractAmount: { value: fractAmount },
-    uBaseTexture: { value: baseTexture },
-    // Audio reactive uniforms
-    uAudioVolume: { value: 0 },
-    uAudioBass: { value: 0 },
-    uAudioMid: { value: 0 },
-    uAudioTreble: { value: 0 },
-    uAudioReactivity: { value: audioReactivity },
-  }), [baseTexture]); // Only recreate when texture changes
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uSpeed: { value: speed },
+      uNoiseStrength: { value: noiseStrength },
+      uDisplacementStrength: { value: displacementStrength },
+      uFractAmount: { value: fractAmount },
+      uBaseTexture: { value: baseTexture },
+      // Audio reactive uniforms
+      uAudioVolume: { value: 0 },
+      uAudioBass: { value: 0 },
+      uAudioMid: { value: 0 },
+      uAudioTreble: { value: 0 },
+      uAudioReactivity: { value: audioReactivity },
+    }),
+    [baseTexture]
+  ); // Only recreate when texture changes
 
   useEffect(() => {
     onLoaded();

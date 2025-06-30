@@ -176,17 +176,22 @@ const Experiment = ({
     },
   });
 
+  // Optimized geometry based on device capabilities
   const geometry = useMemo(() => {
+    // Reduce geometry complexity on mobile and low-end devices
+    const subdivisions = shouldReduceQuality ? 
+      (isMobile ? 64 : 80) : // Lower subdivision for mobile
+      (isMobile ? 100 : 120); // High quality but still mobile-optimized
+    
     const geometry = mergeVertices(
-      // @ts-ignore
-      // nodes.Sphere001.geometry
-      new IcosahedronGeometry(1, 120)
+      new IcosahedronGeometry(1, subdivisions)
     );
     geometry.computeTangents();
     return geometry;
-  }, [shouldReduceQuality]);
+  }, [shouldReduceQuality, isMobile]);
 
-  const uniforms = {
+  // Memoized uniforms object to prevent recreation on every render
+  const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uSpeed: { value: speed },
     uNoiseStrength: { value: noiseStrength },
@@ -199,13 +204,23 @@ const Experiment = ({
     uAudioMid: { value: 0 },
     uAudioTreble: { value: 0 },
     uAudioReactivity: { value: audioReactivity },
-  };
+  }), [baseTexture]); // Only recreate when texture changes
 
   useEffect(() => {
     onLoaded();
   }, [onLoaded]);
 
+  // Optimized frame rate limiting for better performance
+  const frameSkip = useRef(0);
+  const FRAME_SKIP_COUNT = isMobile ? 1 : 0; // Skip every other frame on mobile
+
   useFrame(({ clock }) => {
+    // Frame rate optimization - skip frames on mobile devices
+    if (FRAME_SKIP_COUNT > 0) {
+      frameSkip.current = (frameSkip.current + 1) % (FRAME_SKIP_COUNT + 1);
+      if (frameSkip.current !== 0) return;
+    }
+
     const elapsedTime = clock.getElapsedTime();
 
     // Check if audio is playing and has sufficient volume
@@ -263,29 +278,30 @@ const Experiment = ({
     }
     lastElapsedTime.current = elapsedTime;
 
+    // Batch uniform updates for better performance
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = timeProgression.current;
-      materialRef.current.uniforms.uSpeed.value = reactiveSpeed;
-      materialRef.current.uniforms.uNoiseStrength.value = reactiveNoise;
-      materialRef.current.uniforms.uDisplacementStrength.value =
-        reactiveDisplacement;
-      materialRef.current.uniforms.uFractAmount.value = fractAmount;
+      const material = materialRef.current;
+      material.uniforms.uTime.value = timeProgression.current;
+      material.uniforms.uSpeed.value = reactiveSpeed;
+      material.uniforms.uNoiseStrength.value = reactiveNoise;
+      material.uniforms.uDisplacementStrength.value = reactiveDisplacement;
+      material.uniforms.uFractAmount.value = fractAmount;
 
       // Update audio uniforms
-      materialRef.current.uniforms.uAudioVolume.value = audioVolume;
-      materialRef.current.uniforms.uAudioBass.value = audioBass;
-      materialRef.current.uniforms.uAudioMid.value = audioMid;
-      materialRef.current.uniforms.uAudioTreble.value = audioTreble;
-      materialRef.current.uniforms.uAudioReactivity.value = audioReactivity;
+      material.uniforms.uAudioVolume.value = audioVolume;
+      material.uniforms.uAudioBass.value = audioBass;
+      material.uniforms.uAudioMid.value = audioMid;
+      material.uniforms.uAudioTreble.value = audioTreble;
+      material.uniforms.uAudioReactivity.value = audioReactivity;
     }
 
     if (depthMaterialRef.current) {
-      depthMaterialRef.current.uniforms.uTime.value = timeProgression.current;
-      depthMaterialRef.current.uniforms.uSpeed.value = reactiveSpeed;
-      depthMaterialRef.current.uniforms.uNoiseStrength.value = reactiveNoise;
-      depthMaterialRef.current.uniforms.uDisplacementStrength.value =
-        reactiveDisplacement;
-      depthMaterialRef.current.uniforms.uFractAmount.value = fractAmount;
+      const depthMaterial = depthMaterialRef.current;
+      depthMaterial.uniforms.uTime.value = timeProgression.current;
+      depthMaterial.uniforms.uSpeed.value = reactiveSpeed;
+      depthMaterial.uniforms.uNoiseStrength.value = reactiveNoise;
+      depthMaterial.uniforms.uDisplacementStrength.value = reactiveDisplacement;
+      depthMaterial.uniforms.uFractAmount.value = fractAmount;
     }
 
     if (meshRef.current) {
@@ -311,8 +327,9 @@ const Experiment = ({
           targetAudioRotationBoost * (1 - rotationSmoothness);
       }
 
-      meshRef.current.rotation.y = baseRotation + smoothedRotation.current.y;
-      meshRef.current.rotation.x = baseRotation + smoothedRotation.current.x;
+      const mesh = meshRef.current;
+      mesh.rotation.y = baseRotation + smoothedRotation.current.y;
+      mesh.rotation.x = baseRotation + smoothedRotation.current.x;
     }
   });
 
@@ -321,8 +338,7 @@ const Experiment = ({
       <mesh
         ref={meshRef}
         geometry={geometry}
-        // @ts-ignore
-        // frustumCulled={false}
+        frustumCulled={false} // Disable frustum culling for always-visible sphere
         position={[0, isMobile ? -1.3 * 0 : 0, 0]}
       >
         <CustomShaderMaterial
@@ -352,6 +368,7 @@ const Experiment = ({
           directionalLightPositionY,
           directionalLightPositionZ,
         ]}
+        castShadow={false} // Disable shadows for better performance
       />
     </>
   );

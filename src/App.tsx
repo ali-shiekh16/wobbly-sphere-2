@@ -42,7 +42,6 @@ const App = () => {
   // Check WebGL support on component mount
   useEffect(() => {
     const webglInfo = detectWebGL();
-    console.log('WebGL Detection:', webglInfo);
     setWebglSupported(webglInfo.supported);
   }, []);
 
@@ -117,19 +116,6 @@ const App = () => {
             failIfMajorPerformanceCaveat: false,
             preserveDrawingBuffer: false,
             premultipliedAlpha: false,
-          }}
-          onCreated={({ gl }) => {
-            const context = gl.getContext();
-            console.log(
-              'WebGL Version:',
-              context.getParameter(context.VERSION)
-            );
-            console.log('WebGL Vendor:', context.getParameter(context.VENDOR));
-            console.log(
-              'WebGL Renderer:',
-              context.getParameter(context.RENDERER)
-            );
-            console.log('Three.js Renderer:', gl.constructor.name);
           }}
           fallback={
             <div

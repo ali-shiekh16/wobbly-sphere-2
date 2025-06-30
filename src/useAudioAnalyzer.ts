@@ -55,6 +55,47 @@ export const useAudioAnalyzer = (audioUrl: string) => {
     return sum / count / 255;
   };
 
+  const ensureAudioContextActive = async () => {
+    const audio = audioRef.current;
+    if (!audio || !audioContextRef.current) return false;
+
+    const audioContext = audioContextRef.current;
+
+    if (audioContext.state === 'closed') {
+      console.log('Audio context is closed, recreating...');
+      const newAudioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+      audioContextRef.current = newAudioContext;
+
+      // Recreate analyzer and connections
+      const newAnalyzer = newAudioContext.createAnalyser();
+      const newSource = newAudioContext.createMediaElementSource(audio);
+
+      newAnalyzer.fftSize = 256;
+      newAnalyzer.smoothingTimeConstant = 0.8;
+      const newDataArray = new Uint8Array(newAnalyzer.frequencyBinCount);
+
+      newSource.connect(newAnalyzer);
+      newAnalyzer.connect(newAudioContext.destination);
+
+      analyzerRef.current = newAnalyzer;
+      dataArrayRef.current = newDataArray;
+
+      console.log(
+        'Audio context recreated successfully, state:',
+        newAudioContext.state
+      );
+      return true;
+    } else if (audioContext.state === 'suspended') {
+      console.log('Resuming suspended audio context...');
+      await audioContext.resume();
+      console.log('Audio context resumed, state:', audioContext.state);
+      return true;
+    }
+
+    return audioContext.state === 'running';
+  };
+
   const startAnalysis = () => {
     const analyzeAudio = () => {
       if (
@@ -107,13 +148,20 @@ export const useAudioAnalyzer = (audioUrl: string) => {
         (maxIndex / dataArrayRef.current.length) *
         (audioContextRef.current.sampleRate / 2);
 
+      // Check if audio is actually playing and context is active
+      const isActuallyPlaying = Boolean(
+        audioRef.current &&
+          !audioRef.current.paused &&
+          audioContextRef.current?.state === 'running'
+      );
+
       setAudioData({
         volume: smoothedValues.current.volume,
         frequency: frequency / 1000,
         bass: smoothedValues.current.bass,
         mid: smoothedValues.current.mid,
         treble: smoothedValues.current.treble,
-        isPlaying: audioRef.current ? !audioRef.current.paused : false,
+        isPlaying: isActuallyPlaying,
       });
 
       // Debug audio levels occasionally
@@ -125,20 +173,20 @@ export const useAudioAnalyzer = (audioUrl: string) => {
           mid: (smoothedValues.current.mid * 100).toFixed(1) + '%',
           treble: (smoothedValues.current.treble * 100).toFixed(1) + '%',
           rawDataSample: Array.from(dataArrayRef.current.slice(0, 5)),
+          isPlaying: isActuallyPlaying,
+          paused: audioRef.current?.paused,
+          contextState: audioContextRef.current?.state,
         });
       }
 
-      // Continue analysis if audio is playing
-      if (audioRef.current && !audioRef.current.paused) {
-        animationFrameRef.current = requestAnimationFrame(analyzeAudio);
-      }
+      // Continue analysis always (not just when playing) so the sphere can animate smoothly to zero
+      animationFrameRef.current = requestAnimationFrame(analyzeAudio);
     };
 
     analyzeAudio();
   };
 
   const initializeAudio = async () => {
-    console.log('intialized audio', isInitializedRef);
     if (isInitializedRef.current) return;
 
     console.log('Initializing audio...');
@@ -147,24 +195,12 @@ export const useAudioAnalyzer = (audioUrl: string) => {
     console.log('🎵 Created audio element for:', audioUrl);
     console.log('Audio element:', audio);
 
-    // Test if the audio file exists by trying to load it
-    try {
-      const testResponse = await fetch(audioUrl);
-      console.log('📁 Audio file fetch test:', {
-        status: testResponse.status,
-        ok: testResponse.ok,
-        contentType: testResponse.headers.get('content-type'),
-        contentLength: testResponse.headers.get('content-length'),
-      });
-    } catch (fetchError) {
-      console.error('❌ Could not fetch audio file:', fetchError);
-    }
-
+    // Configure audio before attempting to play
     audio.loop = true;
     audio.crossOrigin = 'anonymous';
     audio.preload = 'auto';
-    audio.volume = 0.8; // Increase initial volume
-    audio.muted = false; // Explicitly ensure it's not muted
+    audio.volume = 0.8;
+    audio.muted = false;
     audioRef.current = audio;
 
     // Create audio context and analyzer
@@ -196,16 +232,20 @@ export const useAudioAnalyzer = (audioUrl: string) => {
         audioMuted: audio.muted,
         contextState: audioContext.state,
       });
-      setAudioData(prev => ({ ...prev, isPlaying: true }));
-      startAnalysis();
+      // Only set isPlaying to true if context is also running
+      const isActuallyPlaying =
+        !audio.paused && audioContext.state === 'running';
+      setAudioData(prev => ({ ...prev, isPlaying: isActuallyPlaying }));
+      // Start analysis (it will run continuously now)
+      if (!animationFrameRef.current) {
+        startAnalysis();
+      }
     });
 
     audio.addEventListener('pause', () => {
       console.log('Audio pause event fired');
       setAudioData(prev => ({ ...prev, isPlaying: false }));
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      // Don't stop analysis - let it continue so sphere can animate to zero smoothly
     });
 
     audio.addEventListener('loadeddata', () => {
@@ -253,6 +293,20 @@ export const useAudioAnalyzer = (audioUrl: string) => {
       });
     });
 
+    // Listen for audio context state changes
+    audioContext.addEventListener('statechange', () => {
+      console.log('🎵 Audio context state changed to:', audioContext.state);
+      // Update isPlaying based on both audio and context state
+      const isActuallyPlaying =
+        !audio.paused && audioContext.state === 'running';
+      setAudioData(prev => ({ ...prev, isPlaying: isActuallyPlaying }));
+
+      if (isActuallyPlaying && !animationFrameRef.current) {
+        // Start analysis if context is now running and audio is playing
+        startAnalysis();
+      }
+    });
+
     // Wait for audio to load
     await new Promise((resolve, reject) => {
       if (audio.readyState >= 2) {
@@ -271,15 +325,12 @@ export const useAudioAnalyzer = (audioUrl: string) => {
       try {
         console.log('Attempting to start audio...');
 
-        // Resume audio context first
-        if (audioContext.state === 'suspended') {
-          console.log('Audio context is suspended, resuming...');
-          await audioContext.resume();
-        }
+        // DON'T try to resume context here - it needs user interaction
+        // Just try to play the audio (muted autoplay might work)
 
         // Force audio to be ready
-        audio.muted = false;
-        audio.volume = 0.8; // Increase volume
+        audio.muted = true; // Start muted for autoplay
+        audio.volume = 0.8;
         audio.currentTime = 0;
 
         console.log('Audio settings:', {
@@ -287,15 +338,16 @@ export const useAudioAnalyzer = (audioUrl: string) => {
           muted: audio.muted,
           readyState: audio.readyState,
           duration: audio.duration || 'unknown',
+          contextState: audioContext.state,
         });
 
-        // Try to play
+        // Try to play (muted)
         const playPromise = audio.play();
         console.log('🎮 Play promise created:', !!playPromise);
 
         if (playPromise !== undefined) {
           await playPromise;
-          console.log('✅ Audio started playing automatically');
+          console.log('✅ Muted audio started playing automatically');
 
           // Verify it's actually playing
           setTimeout(() => {
@@ -304,10 +356,12 @@ export const useAudioAnalyzer = (audioUrl: string) => {
               currentTime: audio.currentTime,
               duration: audio.duration,
               readyState: audio.readyState,
+              contextState: audioContext.state,
             });
           }, 1000);
 
-          return true;
+          // If muted autoplay worked, we still need user interaction to unmute
+          return false; // Still need user interaction for audio context
         } else {
           console.log('❌ Play promise is undefined');
           return false;
@@ -321,132 +375,181 @@ export const useAudioAnalyzer = (audioUrl: string) => {
       }
     };
 
-    const audioStarted = await startAudio();
+    await startAudio();
 
-    // If autoplay failed, set up comprehensive user interaction handler
-    if (!audioStarted) {
-      console.log('🎵 Setting up user interaction handlers...');
+    // Always show the overlay since we need user interaction for audio context
+    console.log('🎵 Setting up user interaction handlers...');
 
-      const handleUserInteraction = async (event: Event) => {
-        console.log('👆 User interaction detected:', event.type);
+    const handleUserInteraction = async (event: Event) => {
+      console.log('👆 User interaction detected:', event.type);
 
-        try {
-          // Resume audio context if needed
-          if (audioContext.state === 'suspended') {
-            console.log('Resuming audio context after user interaction...');
-            await audioContext.resume();
-          }
+      try {
+        // Ensure audio context is active
+        await ensureAudioContextActive();
 
-          // Ensure audio is ready to play
-          audio.muted = false;
-          audio.volume = 0.8; // Increase volume
+        // Ensure audio is ready to play
+        audio.muted = false;
+        audio.volume = 0.8;
+        audio.currentTime = 0; // Reset to beginning
 
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            await playPromise;
-            console.log('✅ Audio started after user interaction');
+        console.log('About to play audio after user interaction:', {
+          paused: audio.paused,
+          volume: audio.volume,
+          muted: audio.muted,
+          contextState: audioContextRef.current?.state,
+        });
 
-            // Verify playback started
-            setTimeout(() => {
-              console.log('🔍 User interaction play verification:', {
-                paused: audio.paused,
-                currentTime: audio.currentTime,
-                volume: audio.volume,
-                muted: audio.muted,
-              });
-            }, 500);
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          console.log('✅ Audio started after user interaction');
 
-            // Remove all listeners after successful play
-            document.removeEventListener('click', handleUserInteraction, true);
-            document.removeEventListener(
-              'keydown',
-              handleUserInteraction,
-              true
-            );
-            document.removeEventListener(
-              'touchstart',
-              handleUserInteraction,
-              true
-            );
-            document.removeEventListener(
-              'mousedown',
-              handleUserInteraction,
-              true
-            );
-            document.removeEventListener(
-              'pointerdown',
-              handleUserInteraction,
-              true
-            );
-          } else {
-            console.error(
-              '❌ Play promise is undefined after user interaction'
-            );
-          }
-        } catch (e) {
-          console.error('Failed to play audio after user interaction:', e);
+          // Verify playback started
+          setTimeout(() => {
+            console.log('🔍 User interaction play verification:', {
+              paused: audio.paused,
+              currentTime: audio.currentTime,
+              volume: audio.volume,
+              muted: audio.muted,
+              contextState: audioContextRef.current?.state,
+            });
+          }, 500);
+
+          // Remove all listeners after successful play
+          document.removeEventListener('click', handleUserInteraction, true);
+          document.removeEventListener('keydown', handleUserInteraction, true);
+          document.removeEventListener(
+            'touchstart',
+            handleUserInteraction,
+            true
+          );
+          document.removeEventListener(
+            'mousedown',
+            handleUserInteraction,
+            true
+          );
+          document.removeEventListener(
+            'pointerdown',
+            handleUserInteraction,
+            true
+          );
+        } else {
+          console.error('❌ Play promise is undefined after user interaction');
         }
-      };
+      } catch (e) {
+        console.error('Failed to play audio after user interaction:', e);
+      }
+    };
 
-      // Add multiple event listeners with capture for immediate response
-      document.addEventListener('click', handleUserInteraction, true);
-      document.addEventListener('keydown', handleUserInteraction, true);
-      document.addEventListener('touchstart', handleUserInteraction, true);
-      document.addEventListener('mousedown', handleUserInteraction, true);
-      document.addEventListener('pointerdown', handleUserInteraction, true);
+    // Add multiple event listeners with capture for immediate response
+    document.addEventListener('click', handleUserInteraction, true);
+    document.addEventListener('keydown', handleUserInteraction, true);
+    document.addEventListener('touchstart', handleUserInteraction, true);
+    document.addEventListener('mousedown', handleUserInteraction, true);
+    document.addEventListener('pointerdown', handleUserInteraction, true);
 
-      // Also add a visual cue
-      console.log('🖱️ Click anywhere on the page to start audio');
+    // Also add a visual cue
+    console.log('🖱️ Click anywhere on the page to start audio');
 
-      // Create a temporary overlay to encourage user interaction
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.8);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: Arial, sans-serif;
-        font-size: 24px;
-        z-index: 10000;
-        cursor: pointer;
-      `;
-      overlay.textContent = '🎵 Click anywhere to start audio';
+    // Create a temporary overlay to encourage user interaction
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      color: #af00ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+      font-size: 32px;
+      z-index: 10000;
+      cursor: pointer;
+      text-align: center;
+    `;
 
-      const startAudioOnClick = async () => {
-        try {
-          if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-          }
-          audio.muted = false;
-          audio.volume = 0.8; // Increase volume
-          await audio.play();
+    overlay.innerHTML = `
+      <div style="margin-bottom: 30px; font-size: 64px; animation: pulse 2s infinite;">🎵</div>
+      <div style="margin-bottom: 15px; font-weight: bold;">Click to Start Audio</div>
+      <div style="font-size: 18px; opacity: 0.8;">Required for audio-reactive visuals</div>
+      <div style="font-size: 14px; opacity: 0.6; margin-top: 10px;">Browser requires user interaction for audio</div>
+    `;
+
+    // Add pulsing animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse {
+        0%, 100% { opacity: 0.8; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.1); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const startAudioOnClick = async () => {
+      try {
+        console.log('🎵 Overlay clicked - attempting to start audio...');
+
+        // Show loading state
+        overlay.innerHTML = `
+          <div style="margin-bottom: 30px; font-size: 64px;">⏳</div>
+          <div style="margin-bottom: 15px;">Starting Audio...</div>
+          <div style="font-size: 16px; opacity: 0.7;">Resuming audio context</div>
+        `;
+
+        // Ensure audio context is active
+        await ensureAudioContextActive();
+
+        audio.muted = false;
+        audio.volume = 0.8;
+        audio.currentTime = 0;
+
+        console.log('Audio settings before overlay play:', {
+          volume: audio.volume,
+          muted: audio.muted,
+          paused: audio.paused,
+          contextState: audioContextRef.current?.state,
+        });
+
+        await audio.play();
+        overlay.remove();
+        console.log('✅ Audio started from overlay click');
+
+        // Verify after a delay
+        setTimeout(() => {
+          console.log('🔍 Overlay play verification:', {
+            paused: audio.paused,
+            currentTime: audio.currentTime,
+            contextState: audioContextRef.current?.state,
+          });
+        }, 1000);
+      } catch (e) {
+        console.error('Failed to start audio from overlay:', e);
+        // Show error state
+        overlay.innerHTML = `
+          <div style="margin-bottom: 30px; font-size: 64px;">⚠️</div>
+          <div style="margin-bottom: 15px; color: #ff6b6b;">Failed - Try Again</div>
+          <div style="font-size: 16px; opacity: 0.7;">Click to retry</div>
+        `;
+      }
+    };
+
+    overlay.addEventListener('click', startAudioOnClick);
+    document.body.appendChild(overlay);
+
+    // Remove overlay after successful audio start
+    audio.addEventListener(
+      'play',
+      () => {
+        if (overlay.parentNode) {
           overlay.remove();
-          console.log('✅ Audio started from overlay click');
-        } catch (e) {
-          console.error('Failed to start audio from overlay:', e);
         }
-      };
-
-      overlay.addEventListener('click', startAudioOnClick);
-      document.body.appendChild(overlay);
-
-      // Remove overlay after successful audio start
-      audio.addEventListener(
-        'play',
-        () => {
-          if (overlay.parentNode) {
-            overlay.remove();
-          }
-        },
-        { once: true }
-      );
-    }
+      },
+      { once: true }
+    );
   };
 
   useEffect(() => {
@@ -461,9 +564,10 @@ export const useAudioAnalyzer = (audioUrl: string) => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      // Don't close audio context immediately - it might be needed again
+      // if (audioContextRef.current) {
+      //   audioContextRef.current.close();
+      // }
     };
   }, [audioUrl]);
 

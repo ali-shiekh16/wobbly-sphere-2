@@ -54,7 +54,7 @@ const Experiment = ({
   });
 
   // Load assets
-  const { materials } = useGLTF('/Sphere.glb');
+  const { materials } = useGLTF('/sphere-new.glb');
   const baseTexture = useTexture('/texture/base.png');
 
   const {

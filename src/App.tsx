@@ -5,8 +5,9 @@ import { useMediaQuery } from 'usehooks-ts';
 import Experiment from './Experiment';
 import LevaWrapper from './LevaWrapper';
 import LoadingIndicator from './LoadingIndicator';
+import AudioStatusIndicator from './AudioStatusIndicator';
 import './App.css';
-// import { Bloom, EffectComposer } from '@react-three/postprocessing';
+import { useAudioAnalyzer } from './useAudioAnalyzer';
 
 // WebGL detection utility
 const detectWebGL = () => {
@@ -35,6 +36,9 @@ const App = () => {
   const [fadeOut, setFadeOut] = useState(false);
   const [webglSupported, setWebglSupported] = useState(true);
 
+  // Audio analysis
+  const { audioData } = useAudioAnalyzer('/audio.mp3');
+
   // Check WebGL support on component mount
   useEffect(() => {
     const webglInfo = detectWebGL();
@@ -60,6 +64,10 @@ const App = () => {
   return (
     <div className='container'>
       {showLoading && <LoadingIndicator fadeOut={fadeOut} />}
+      <AudioStatusIndicator
+        isPlaying={audioData.isPlaying}
+        volume={audioData.volume}
+      />
       <LevaWrapper />
 
       {!webglSupported ? (
@@ -151,6 +159,7 @@ const App = () => {
               shouldReduceQuality={isTablet}
               isMobile={isMobile}
               onLoaded={handleLoad}
+              audioData={audioData}
             />
           </Suspense>
           {/* <OrbitControls /> */}{' '}

@@ -138,6 +138,7 @@ export const useAudioAnalyzer = (audioUrl: string) => {
   };
 
   const initializeAudio = async () => {
+    console.log('intialized audio', isInitializedRef);
     if (isInitializedRef.current) return;
 
     console.log('Initializing audio...');

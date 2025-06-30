@@ -35,6 +35,10 @@ const Experiment = ({
   const depthMaterialRef = useRef<any>(null);
   const meshRef = useRef<Mesh>(null);
 
+  // Time progression tracking for pausing animation
+  const timeProgression = useRef(0);
+  const lastElapsedTime = useRef(0);
+
   // Additional smoothing for animation values
   const smoothedAudioValues = useRef({
     volume: 0,
@@ -96,7 +100,7 @@ const Experiment = ({
       step: 0.1,
     },
     bassMultiplier: {
-      value: 1.5,
+      value: 0.5,
       min: 0,
       max: 3,
       step: 0.1,
@@ -204,6 +208,9 @@ const Experiment = ({
   useFrame(({ clock }) => {
     const elapsedTime = clock.getElapsedTime();
 
+    // Check if audio is playing and has sufficient volume
+    const hasAudio = audioData.isPlaying && audioData.volume > 0.01; // Threshold for silence
+
     // Calculate raw audio-reactive values
     const rawAudioVolume = audioData.volume * volumeMultiplier;
     const rawAudioBass = audioData.bass * bassMultiplier;
@@ -212,18 +219,29 @@ const Experiment = ({
 
     // Apply additional smoothing for animation
     const smoothing = audioSmoothness;
-    smoothedAudioValues.current.volume =
-      smoothedAudioValues.current.volume * smoothing +
-      rawAudioVolume * (1 - smoothing);
-    smoothedAudioValues.current.bass =
-      smoothedAudioValues.current.bass * smoothing +
-      rawAudioBass * (1 - smoothing);
-    smoothedAudioValues.current.mid =
-      smoothedAudioValues.current.mid * smoothing +
-      rawAudioMid * (1 - smoothing);
-    smoothedAudioValues.current.treble =
-      smoothedAudioValues.current.treble * smoothing +
-      rawAudioTreble * (1 - smoothing);
+
+    // If no audio, gradually reduce smoothed values to zero
+    if (!hasAudio) {
+      const fadeOutSpeed = 0.95; // How quickly animation fades out when audio stops
+      smoothedAudioValues.current.volume *= fadeOutSpeed;
+      smoothedAudioValues.current.bass *= fadeOutSpeed;
+      smoothedAudioValues.current.mid *= fadeOutSpeed;
+      smoothedAudioValues.current.treble *= fadeOutSpeed;
+    } else {
+      // Normal smoothing when audio is present
+      smoothedAudioValues.current.volume =
+        smoothedAudioValues.current.volume * smoothing +
+        rawAudioVolume * (1 - smoothing);
+      smoothedAudioValues.current.bass =
+        smoothedAudioValues.current.bass * smoothing +
+        rawAudioBass * (1 - smoothing);
+      smoothedAudioValues.current.mid =
+        smoothedAudioValues.current.mid * smoothing +
+        rawAudioMid * (1 - smoothing);
+      smoothedAudioValues.current.treble =
+        smoothedAudioValues.current.treble * smoothing +
+        rawAudioTreble * (1 - smoothing);
+    }
 
     // Use smoothed values for animation
     const audioVolume = smoothedAudioValues.current.volume;
@@ -237,8 +255,16 @@ const Experiment = ({
     const reactiveNoise = noiseStrength + audioBass * audioReactivity * 0.5;
     const reactiveSpeed = speed + audioTreble * audioReactivity * 2;
 
+    // Track time progression - pause when no audio
+    if (hasAudio) {
+      // Continue time progression when audio is playing
+      const deltaTime = elapsedTime - lastElapsedTime.current;
+      timeProgression.current += deltaTime;
+    }
+    lastElapsedTime.current = elapsedTime;
+
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = elapsedTime;
+      materialRef.current.uniforms.uTime.value = timeProgression.current;
       materialRef.current.uniforms.uSpeed.value = reactiveSpeed;
       materialRef.current.uniforms.uNoiseStrength.value = reactiveNoise;
       materialRef.current.uniforms.uDisplacementStrength.value =
@@ -254,7 +280,7 @@ const Experiment = ({
     }
 
     if (depthMaterialRef.current) {
-      depthMaterialRef.current.uniforms.uTime.value = elapsedTime;
+      depthMaterialRef.current.uniforms.uTime.value = timeProgression.current;
       depthMaterialRef.current.uniforms.uSpeed.value = reactiveSpeed;
       depthMaterialRef.current.uniforms.uNoiseStrength.value = reactiveNoise;
       depthMaterialRef.current.uniforms.uDisplacementStrength.value =
@@ -264,17 +290,26 @@ const Experiment = ({
 
     if (meshRef.current) {
       // Add subtle audio-reactive rotation with smooth interpolation
-      const baseRotation = elapsedTime * 0.3;
+      const baseRotation = hasAudio ? elapsedTime * 0.3 : 0; // Stop base rotation when no audio
       const targetAudioRotationBoost = audioMid * audioReactivity * 0.1;
 
       // Smooth the rotation changes
       const rotationSmoothness = 0.95;
-      smoothedRotation.current.x =
-        smoothedRotation.current.x * rotationSmoothness +
-        targetAudioRotationBoost * (1 - rotationSmoothness);
-      smoothedRotation.current.y =
-        smoothedRotation.current.y * rotationSmoothness +
-        targetAudioRotationBoost * (1 - rotationSmoothness);
+
+      if (!hasAudio) {
+        // Gradually stop rotation when no audio
+        const rotationFadeOut = 0.98;
+        smoothedRotation.current.x *= rotationFadeOut;
+        smoothedRotation.current.y *= rotationFadeOut;
+      } else {
+        // Normal rotation smoothing when audio is present
+        smoothedRotation.current.x =
+          smoothedRotation.current.x * rotationSmoothness +
+          targetAudioRotationBoost * (1 - rotationSmoothness);
+        smoothedRotation.current.y =
+          smoothedRotation.current.y * rotationSmoothness +
+          targetAudioRotationBoost * (1 - rotationSmoothness);
+      }
 
       meshRef.current.rotation.y = baseRotation + smoothedRotation.current.y;
       meshRef.current.rotation.x = baseRotation + smoothedRotation.current.x;

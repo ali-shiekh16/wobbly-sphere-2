@@ -11,6 +11,13 @@ uniform float uNoiseStrength;
 uniform float uDisplacementStrength;
 uniform float uFractAmount;
 
+// Audio reactive uniforms
+uniform float uAudioVolume;
+uniform float uAudioBass;
+uniform float uAudioMid;
+uniform float uAudioTreble;
+uniform float uAudioReactivity;
+
 //	Classic Perlin 3D Noise
 //	by Stefan Gustavson (https://github.com/stegu/webgl-noise)
 //
@@ -93,12 +100,55 @@ float smoothMod(float axis, float amp, float rad) {
     return amp * (1.0 / 2.0) - (1.0 / PI) * at;
 }
 
+// Smooth interpolation function for audio reactivity
+float smoothAudioReactive(float baseValue, float audioValue, float reactivity, float smoothness) {
+    float targetValue = baseValue + (audioValue * reactivity);
+    return mix(baseValue, targetValue, smoothness);
+}
+
+// Smooth step function for gradual transitions
+float smoothAudioStep(float audioValue, float threshold, float smoothness) {
+    return smoothstep(threshold - smoothness, threshold + smoothness, audioValue);
+}
+
 float getDisplacement(vec3 position) {
     vec3 pos = position;
     pos.y -= uTime * 0.05 * uSpeed;
-    pos += cnoise(pos * 1.65) * uNoiseStrength;
+    
+    // Calculate overall audio activity to determine if sphere should be smooth
+    float audioActivity = uAudioVolume + uAudioBass + uAudioMid + uAudioTreble;
+    
+    // If there's no audio activity, return zero displacement (smooth sphere)
+    if (audioActivity <= 0.001) {
+        return 0.0;
+    }
+    
+    // Smooth audio-reactive noise variation
+    float audioNoiseFactor = smoothAudioReactive(1.0, uAudioBass, uAudioReactivity * 0.3, 0.8);
+    pos += cnoise(pos * 1.65) * uNoiseStrength * audioNoiseFactor;
 
-    return smoothMod(pos.y * uFractAmount, 1., 1.5) * uDisplacementStrength;
+    // Smooth audio-reactive displacement with gradual bass and volume influence
+    float audioVolumeBoost = smoothAudioReactive(1.0, uAudioVolume, uAudioReactivity * 0.4, 0.9);
+    float audioBassBoost = smoothAudioReactive(1.0, uAudioBass, uAudioReactivity * 0.2, 0.85);
+    float audioDisplacementBoost = audioVolumeBoost * audioBassBoost;
+    
+    float baseDisplacement = smoothMod(pos.y * uFractAmount, 1., 1.5) * uDisplacementStrength;
+    
+    // Add smooth high-frequency ripples based on treble with sine wave interpolation
+    float trebleIntensity = smoothAudioStep(uAudioTreble, 0.1, 0.05) * uAudioReactivity;
+    float trebleRipple = sin(pos.y * 20.0 + uTime * 5.0) * trebleIntensity * 0.05;
+    
+    // Add smooth mid-frequency pulse with cosine modulation
+    float midIntensity = smoothAudioReactive(0.0, uAudioMid, uAudioReactivity, 0.95);
+    float midPulse = cos(uTime * 3.0) * midIntensity * 0.1;
+    
+    // Scale all displacement by audio activity for smooth transition to zero
+    float totalDisplacement = baseDisplacement * audioDisplacementBoost + trebleRipple + midPulse;
+    
+    // Apply smooth fade-out based on overall audio activity
+    float activityFactor = smoothstep(0.0, 0.1, audioActivity);
+    
+    return totalDisplacement * activityFactor;
 }
 
 void main() {

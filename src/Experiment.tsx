@@ -94,19 +94,19 @@ const Experiment = ({
       step: 1,
     },
     audioReactivity: {
-      value: 0.5,
+      value: 0.7,
       min: 0,
       max: 5,
       step: 0.1,
     },
     bassMultiplier: {
-      value: 0.5,
+      value: 1.1,
       min: 0,
       max: 3,
       step: 0.1,
     },
     midMultiplier: {
-      value: 1.0,
+      value: 1.3,
       min: 0,
       max: 3,
       step: 0.1,
@@ -178,7 +178,16 @@ const Experiment = ({
 
   // Optimized geometry based on device capabilities
   const geometry = useMemo(() => {
-    const geometry = mergeVertices(new IcosahedronGeometry(1, 64));
+    // Reduce geometry complexity on mobile and low-end devices
+    const subdivisions = shouldReduceQuality
+      ? isMobile
+        ? 64
+        : 80 // Lower subdivision for mobile
+      : isMobile
+      ? 100
+      : 120; // High quality but still mobile-optimized
+
+    const geometry = mergeVertices(new IcosahedronGeometry(1, subdivisions));
     geometry.computeTangents();
     return geometry;
   }, [shouldReduceQuality, isMobile]);
@@ -211,16 +220,16 @@ const Experiment = ({
   const FRAME_SKIP_COUNT = isMobile ? 1 : 0; // Skip every other frame on mobile
 
   useFrame(({ clock }) => {
+    const elapsedTime = clock.getElapsedTime();
+
+    // Check if audio is playing and has sufficient volume
+    const hasAudio = audioData.isPlaying && audioData.volume > 0.01; // Threshold for silence
+
     // Frame rate optimization - skip frames on mobile devices
     if (FRAME_SKIP_COUNT > 0) {
       frameSkip.current = (frameSkip.current + 1) % (FRAME_SKIP_COUNT + 1);
       if (frameSkip.current !== 0) return;
     }
-
-    const elapsedTime = clock.getElapsedTime();
-
-    // Check if audio is playing and has sufficient volume
-    const hasAudio = audioData.isPlaying && audioData.volume > 0.01; // Threshold for silence
 
     // Calculate raw audio-reactive values
     const rawAudioVolume = audioData.volume * volumeMultiplier;
@@ -305,9 +314,6 @@ const Experiment = ({
       const baseRotation = hasAudio ? elapsedTime * 0.3 : 0; // Stop base rotation when no audio
       const targetAudioRotationBoost = audioMid * audioReactivity * 0.1;
 
-      // Smooth the rotation changes
-      const rotationSmoothness = 0.95;
-
       if (!hasAudio) {
         // Gradually stop rotation when no audio
         const rotationFadeOut = 0.98;
@@ -315,6 +321,7 @@ const Experiment = ({
         smoothedRotation.current.y *= rotationFadeOut;
       } else {
         // Normal rotation smoothing when audio is present
+        const rotationSmoothness = 0.95;
         smoothedRotation.current.x =
           smoothedRotation.current.x * rotationSmoothness +
           targetAudioRotationBoost * (1 - rotationSmoothness);

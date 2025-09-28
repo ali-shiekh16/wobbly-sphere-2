@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Suspense } from 'react';
 import { useMediaQuery } from 'usehooks-ts';
-import Experiment from './Experiment';
 import LevaWrapper from './LevaWrapper';
 import LoadingIndicator from './LoadingIndicator';
 import AudioStatusIndicator from './AudioStatusIndicator';
 import './App.css';
 import { useAudioAnalyzer } from './useAudioAnalyzer';
+import Sphere from './Sphere';
 
 // WebGL detection utility
 const detectWebGL = () => {
@@ -43,6 +42,8 @@ const App = () => {
   useEffect(() => {
     const webglInfo = detectWebGL();
     setWebglSupported(webglInfo.supported);
+    // Since we are not loading a heavy model anymore, we can consider it loaded.
+    setIsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -57,9 +58,6 @@ const App = () => {
     }
   }, [isLoaded]);
 
-  const handleLoad = () => {
-    setIsLoaded(true);
-  };
   return (
     <div className='container'>
       {showLoading && <LoadingIndicator fadeOut={fadeOut} />}
@@ -112,7 +110,7 @@ const App = () => {
           gl={{
             alpha: false,
             antialias: true,
-            powerPreference: 'default', // Changed from "high-performance" for better compatibility
+            powerPreference: 'default',
             failIfMajorPerformanceCaveat: false,
             preserveDrawingBuffer: false,
             premultipliedAlpha: false,
@@ -141,21 +139,28 @@ const App = () => {
           }
         >
           <Suspense fallback={null}>
-            <Experiment
+            <Sphere
+              audioData={audioData}
+              position={[-2.2, 1.2, 0]}
               shouldReduceQuality={isTablet}
               isMobile={isMobile}
-              onLoaded={handleLoad}
+              folder='Sphere 1'
+            />
+            <Sphere
               audioData={audioData}
+              position={[2.2, 1.2, 0]}
+              shouldReduceQuality={isTablet}
+              isMobile={isMobile}
+              folder='Sphere 2'
             />
           </Suspense>
-          {/* <OrbitControls /> */}{' '}
-          {/* <EffectComposer>
-            <Bloom
-              luminanceThreshold={0}
-              luminanceSmoothing={0.9}
-              height={300}
-            />
-          </EffectComposer> */}
+          <ambientLight color={'#fff'} intensity={1} />
+          <directionalLight
+            color={'#fff'}
+            intensity={5}
+            position={[-2, 2, 3.5]}
+            castShadow={false}
+          />
         </Canvas>
       )}
     </div>
